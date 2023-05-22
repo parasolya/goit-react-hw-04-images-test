@@ -1,4 +1,4 @@
-import { Component } from 'react';
+import { useEffect, useState } from 'react';
 import ImageGalleryItem from './ImageGalleryItem';
 import css from './ImageFinder.module.css';
 import Loader from './Loader';
@@ -7,71 +7,67 @@ import getPhotos from '../loadAPI';
 import PropTypes from 'prop-types';
 import Notiflix from 'notiflix';
 
-export default class ImageGallery extends Component {
-  state = {
-    arrayPhotos: [],
-    loading: false,
-  };
-  static propTypes = {
-    onClick: PropTypes.func.isRequired,
-    photoName: PropTypes.string.isRequired,
-  };
+export default function ImageGallery({
+  page,
+  onClick,
+  photoName,
+  loadMoreBtn,
+}) {
+  const [arrayPhotos, setArrayPhotos] = useState([]);
+  const [status, setStatus] = useState('idle');
 
-  componentDidUpdate(prevProps, prevState) {
-    if (prevProps.photoName !== this.props.photoName) {
-      this.loadPhotos();
+  useEffect(() => {
+    if (photoName !== '') {
+      loadPhotos();
     }
-    if (prevProps.page !== this.props.page && this.props.page > 1) {
-      this.loadMorePhotos();
+  }, [photoName]);
+
+  useEffect(() => {
+    if (page > 1) {
+      loadMorePhotos();
     }
-  }
-  loadPhotos = () => {
-    this.setState({ loading: true });
-    const { photoName, page } = this.props;
+  }, [page]);
+
+  const loadPhotos = () => {
+    setStatus('pending');
+
     getPhotos(photoName, page)
-    .then(photos => {
-      console.log(photos);
-      if (photos.hits.length === 0) {
-        
-        this.setState({ 
-          loading: false,
-          arrayPhotos: [],
-         });
-         Notiflix.Notify.info(
+      .then(photos => {
+        if (photos.hits.length === 0) {
+          setArrayPhotos([]);
+          setStatus('idle');
+          Notiflix.Notify.info(
+            'Sorry, there are no images matching your search query. Please try again.'
+          );
+          return;
+        } else {
+          setArrayPhotos(photos.hits);
+          setStatus('resolve');
+        }
+      })
+      .catch(error => {
+        console.log(error);
+        Notiflix.Report.failure(
           'Sorry, there are no images matching your search query. Please try again.'
         );
-        return;
-      } else {this.setState({
-        arrayPhotos: photos.hits,
-      })}
-        
-      }
-      )
-      .catch(error => {        
-          console.log(error);
-          Notiflix.Report.failure(
-            'Sorry, there are no images matching your search query. Please try again.'
-          );        
-      })
-      .finally(() => this.setState({ loading: false }));
+
+        setStatus('rejected');
+      });
   };
-  loadMorePhotos = () => {
-    this.setState({ loading: true });
-    const { photoName, page } = this.props;
+
+  const loadMorePhotos = () => {
+    setStatus('pending');
     getPhotos(photoName, page)
       .then(photos => {
         if (photos.hits.length === 0) {
           Notiflix.Notify.info(
             'We are sorry, but you have reached the end of search results.'
           );
-          this.setState({ loading: false });
+          setStatus('idle');
           return;
         }
-
-        this.setState(prevState => ({
-          arrayPhotos: [...prevState.arrayPhotos, ...photos.hits],
-          loading: false,
-        }));
+        setArrayPhotos([...arrayPhotos, ...photos.hits]);
+        setStatus('resolve');
       })
 
       .catch(error => {
@@ -79,32 +75,37 @@ export default class ImageGallery extends Component {
         Notiflix.Report.failure(
           'Sorry, there are no images matching your search query. Please try again.'
         );
+        setStatus('rejected');
       });
   };
-
-  render() {
+  if (status === 'pending') {
+    return <Loader />;
+  }
+  if (status === 'resolve') {
     return (
-      <div>       
-        {this.state.loading && <Loader />}       
-        {this.state.arrayPhotos && (
-          <ul className={css.ImageGallery}>
-            {this.state.arrayPhotos.map(el => {
-              return (
-                <ImageGalleryItem
-                  key={el.id}
-                  url={el.webformatURL}
-                  alt={el.tags}
-                  largeUrl={el.largeImageURL}
-                  onClick={this.props.onClick}
-                />
-              );
-            })}
-          </ul>
-        )}
-        {this.state.arrayPhotos.length !== 0 && (
-          <Button onClick={this.props.loadMoreBtn} />
-        )}
+      <div>
+        <ul className={css.ImageGallery}>
+          {arrayPhotos.map(el => {
+            return (
+              <ImageGalleryItem
+                key={el.id}
+                url={el.webformatURL}
+                alt={el.tags}
+                largeUrl={el.largeImageURL}
+                onClick={onClick}
+              />
+            );
+          })}
+        </ul>
+
+        {arrayPhotos.length !== 0 && <Button onClick={loadMoreBtn} />}
       </div>
     );
   }
 }
+ImageGallery.propTypes = {
+  onClick: PropTypes.func.isRequired,
+  photoName: PropTypes.string.isRequired,
+  page: PropTypes.number.isRequired,
+  loadMoreBtn: PropTypes.func.isRequired,
+};

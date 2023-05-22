@@ -1,40 +1,33 @@
-import { Component } from 'react';
+import { useEffect } from 'react';
 import PropTypes from 'prop-types';
 import css from './ImageFinder.module.css';
 
-export default class Modal extends Component {
-  static propTypes = {
-    url: PropTypes.string.isRequired,
-    onClose: PropTypes.func.isRequired,
-  };
-  componentDidMount() {
-    window.addEventListener('keydown', this.clickEsc);
-  }
-  componentWillUnmount() {
-    window.removeEventListener('keydown', this.clickEsc);
-  }
+export default function Modal({ url, toggleModal }) {
+  useEffect(() => {
+    window.addEventListener('keydown', clickEsc);
 
-  clickBackdrop = event => {
+    return function cleanup() {
+      window.removeEventListener('keydown', clickEsc);
+    };
+  });
+  const clickBackdrop = event => {
     if (event.target === event.currentTarget) {
-      this.props.toggleModal();
+      toggleModal();
     }
   };
-
-  clickEsc = event => {
+  const clickEsc = event => {
     if (event.code === 'Escape') {
-      this.props.toggleModal();
+      toggleModal();
     }
   };
 
-  render() {
-    return (
-      <div className={css.Overlay} onClick={this.clickBackdrop}>
-        <div className={css.Modal}>
-          <img src={this.props.url} alt="" />
-        </div>
+  return (
+    <div className={css.Overlay} onClick={clickBackdrop}>
+      <div className={css.Modal}>
+        <img src={url} alt="" />
       </div>
-    );
-  }
+    </div>
+  );
 }
 Modal.propTypes = {
   url: PropTypes.string.isRequired,
